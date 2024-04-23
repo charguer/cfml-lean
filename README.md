@@ -88,6 +88,10 @@ The relevant file for the definitions is:
 https://github.com/charguer/cfml/blob/master/lib/coq/LibSepFunctor.v
 and for the tactics
 https://github.com/charguer/cfml/blob/master/lib/coq/LibSepSimpl.v
+A high-level specification of `xsimpl` is available in appendix K from:
+https://www.chargueraud.org/research/2020/seq_seplogic/seq_seplogic.pdf
+A commented version of the Ltac implementation should made available soon.
+
 I expect the Lean implementation to be vastly simpler than the
 Ltac-based implementation.
 At this stage, we are ready to verify basic imperative code.
