@@ -86,6 +86,12 @@ theorem spec_ok (v : α) (Q : α → Prop) (h : Q v) :
   spec (ok v) Q := by
   simp [spec, *]
 
+#check spec_ok
+
+theorem spec_ok_evar (v : α) :
+  spec (ok v) (fun y => y = v) := by
+  simp [spec, *]
+
 theorem spec_let e Q1 Q :
   spec e Q1 →
   (∀ x, Q1 x → spec (k x) Q) →
@@ -93,6 +99,18 @@ theorem spec_let e Q1 Q :
   simp [spec, bind, *]
   cases e <;> simp
   sorry
+
+theorem spec_let_ok_subst v Q :
+  spec (k v) Q →
+  spec (bind (ok v) k) Q := sorry
+
+theorem spec_let_ok_nosubst v Q :
+  (∀ x, x = v → spec (k x) Q) →
+  spec (bind (ok v) k) Q := sorry
+
+theorem spec_forall_eq_subst (k : α → Result β) v Q :
+  spec (k v) Q →
+  (∀ x, x = v → spec (k x) Q) := sorry
 
 -- TODO: ==>
 @[simp]
@@ -148,7 +166,7 @@ theorem spec_quadruple1 (x : Int) :
 --def evalProgress (args : TSyntax `Progress.progressArgs) : TacticM Unit := do
 --  let args := args.raw
 
-set_option trace.Xlet true
+set_option trace.Xlet false
 open Lean Elab Term Meta Tactic
 
 #check Expr
@@ -157,11 +175,21 @@ open Lean Elab Term Meta Tactic
 #check ConstantInfo
 #check Expr.const
 
+def exprOfThm (name : Name) : MetaM Expr := do
+  let env ← getEnv
+  let thDecl := env.constants.find! name
+  -- We have to introduce fresh meta-variables for the universes already
+  let ul : List Level ←
+    thDecl.levelParams.mapM (λ _ => do pure (← mkFreshLevelMVar))
+  let th := Expr.const name ul
+  trace[Xlet] "th: {th}"
+  pure th
+
 -- xlet
 -- xlet P
 -- xlet
-syntax xletArgs := (ident)?
-elab "xlet" args:xletArgs : tactic => do
+def xletEval (cont1 : MVarId → TacticM (List MVarId))
+             (cont2 : MVarId → Name → TacticM (List MVarId)) : TacticM Unit := do
   -- Focus on the current goal
   Tactic.focus do
   withMainContext do
@@ -194,24 +222,63 @@ elab "xlet" args:xletArgs : tactic => do
     | .ldecl _index _ userName _ _ _ _ => userName
   trace[Xlet] "yName: {yName}"
   -- Apply the theorem
-  let env ← getEnv
-  let thDecl := env.constants.find! ``spec_let
-  -- We have to introduce fresh meta-variables for the universes already
-  let ul : List Level ←
-    thDecl.levelParams.mapM (λ _ => do pure (← mkFreshLevelMVar))
-  let th := Expr.const ``spec_let ul
-  trace[Xlet] "th: {th}"
+  let th ← exprOfThm ``spec_let
   let ngoals ← mgoal.apply th
   setGoals ngoals
   -- intro y in the second goal
   match ngoals with
   | goal1 :: goal2 :: goals =>
-    let (_, ngoal2) ← goal2.intro yName
-    setGoals (goal1 :: ngoal2 :: goals)
+    -- Apply continuations
+    let ngoals1 ← cont1 goal1
+    let ngoals2 ← cont2 goal2 yName
+    setGoals (List.append ngoals1 (List.append ngoals2 goals))
     pure ()
   | _ =>
     -- Error
     panic "There should be at least 2 goals"
+
+elab "xlet" : tactic => do
+  let cont1 (goal : MVarId) : TacticM (List MVarId) := pure [goal]
+  let cont2 goal yName := do
+    let (_, ngoal) ← goal.intro yName
+    pure [ngoal]
+  xletEval cont1 cont2
+
+def xletValEval : TacticM Unit := do
+  withMainContext do
+  -- Retrieve the goal
+  let mgoal ← Tactic.getMainGoal
+  let ngoals ← mgoal.apply (← exprOfThm ``spec_let_ok_subst)
+  setGoals ngoals
+
+elab "xlet_val" : tactic => do
+  xletValEval
+
+elab "xval" : tactic => do
+  withMainContext do
+  -- Retrieve the goal
+  let mgoal ← Tactic.getMainGoal
+  let ngoals ← mgoal.apply (← exprOfThm ``spec_ok)
+  setGoals ngoals
+
+/-syntax "xval" : tactic
+macro_rules
+  | `(tactic| xval) =>
+    `(tactic|
+      -- TODO: we should check wether the post is an evar or not
+      apply ``spec_ok)-/
+
+theorem entail_trivial :
+  P a →
+  entails (fun y => y = a) P := sorry
+
+syntax "xapp_last" term : tactic
+macro_rules
+  | `(tactic| xapp_last $spec:term) =>
+    `(tactic|
+      apply spec_weaken <;>
+      (try apply $spec) <;>
+      (try intro res Hres; try simp only))
 
 /-
 -- TODO: use name given by lambda
@@ -222,10 +289,103 @@ macro_rules
       apply spec_let; [|intro])
 -/
 
+elab "xapp" e:term : tactic => do
+  -- Resolve the id of the theorem
+  withMainContext do
+  let mut e ← instantiateMVars (← elabTermForApply e)
+  let cont1 (goal : MVarId) : TacticM (List MVarId) := do
+    let ngoals ← goal.apply e
+    pure ngoals
+  let cont2 goal yName := do
+    let (_, ngoal) ← goal.intro yName
+    pure [ngoal]
+  xletEval cont1 cont2
+
+elab "xapps" e:term : tactic => do
+  -- Resolve the id of the theorem
+  withMainContext do
+  let mut e ← instantiateMVars (← elabTermForApply e)
+  let cont1 (goal : MVarId) : TacticM (List MVarId) := do
+    let ngoals ← goal.apply e
+    pure ngoals
+  let cont2 goal _yName := do
+    goal.apply (← exprOfThm ``spec_forall_eq_subst)
+  xletEval cont1 cont2
+
 theorem spec_quadruple2 (x : Int) :
   spec (quadruple x) (λ y => y = 4 * x) := by
   rw [quadruple]
   xlet
+  . apply spec_double
+  . intro Hy
+    sorry
 
+theorem spec_2 :
+  spec (do let x ← ok 2; pure 2) (λ y => y = 2) := by
+  xlet_val
+  sorry
+
+example (x : Int) :
+  spec (quadruple x) (λ y => y = 4 * x) := by
+  xapp_last spec_quadruple2
+  simp [*]
+
+example (x : Int) :
+  spec (double x) (λ y => y = 2 * x) := by
+  rw [double] -- TODO: xstart
+  xval
+  sorry
+
+example :
+  spec (do let x ← ok 2; ok (x + x)) (λ y => y = 4) := by
+  xlet_val
+  xval
+  simp
+
+example :
+  spec (do let x ← ok 2; ok (x + x)) (λ y => y = 4) := by
+  xlet
+  apply spec_ok_evar
+  intro Hx
+  xval
+  simp [Hx]
+
+example (x : Int) :
+  spec (quadruple x) (λ y => y = 4 * x) := by
+  rw [quadruple]
+  xapp spec_double
+  intro Hy
+  xapp_last spec_double
+  sorry
+
+example (x : Int) :
+  spec (quadruple x) (λ y => y = 4 * x) := by
+  rw [quadruple]
+  xapps spec_double
+  xapp_last spec_double
+  sorry
+
+def half (n : Int) : Result Int :=
+  ok (n / 2)
+
+theorem spec_half :
+  ∀ m n, n = 2 * m →
+  spec (half n) (λ m' => m' = m) := by
+  sorry
+
+def quarter (x : Int) : Result Int := do
+  let y ← half x
+  half y
+
+theorem spec_quarter :
+  ∀ m n, n = 4 * m →
+  spec (quarter n) (λ m' => m' = m) := by
+  intro m n Heq
+  unfold quarter
+  -- TODO: xapp (spec_half 2 * m)
+  -- TODO: xapp (>> 2 * m)
+  xapps (spec_half (2 * m))
+  sorry
+  xapp_last (spec_half m) <;> simp [*]
 
 end Cfml
