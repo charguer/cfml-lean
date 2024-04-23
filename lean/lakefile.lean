@@ -3,5 +3,4 @@ open Lake DSL
 
 package «cfml» {}
 
-@[default_target]
-lean_lib «Cfml» {}
+@[default_target] lean_lib «Cfml»
