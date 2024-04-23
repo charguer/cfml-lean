@@ -1,0 +1,607 @@
+let x = v in t
+
+
+xval_let_nosubst
+xval_let_maysubst
+xval_ok
+
+
+
+xval
+xletval
+xletval_nosubst
+
+
+
+
+xlet_inv
+  (e1, y)
+
+xlet_core cont1 cont2
+
+
+xlet : dispatch
+
+
+
+
+
+
+
+
+xval :
+  ok v => xval_ok
+  let .. => xlet_common avec cont1:=xval_ok  cont2:=cont2dexlet
+
+xval_nosubst
+  let .. =>  xlet  -->   intros y (fresh "H"  ^ y)
+
+
+xlet_common cont1 cont2
+  cont1()
+  cont2 y
+
+xlet_nosubst_nointro     forall y, P y ...
+xlet_maysubst
+  intros y
+  y = e  ==> elim
+  P y ->
+
+
+
+
+
+
+cont2 y :=
+  let Hy =
+
+
+
+
+cont2 y ===>
+
+  xlet_as Hy  ==> intros y Hy
+  xlet_nosubst ==> intros y (fresh "H"  ^ y)
+  xlet
+    ==> si y = e :    intros y ->
+    ==> sinon    :    xlet_nosubst
+
+
+
+  evar ?Q1;
+  assert H : spec e1 ?Q1
+
+  Q1 =?= (fun y => y=r)
+
+
+
+  spec e1 ?Q1
+  spec (e2 r) Q
+  spec (bind e1 e2) Q
+
+
+
+
+let y = f x
+let y = v
+
+
+
+  xapp spec_double
+
+
+
+  spec e1 Q1 ->
+  (spec e1 Q1 ->  spec (bind e1 k) Q)
+  spec (bind e1 k) Q
+
+
+
+  spec (f x) (fun y => y = vr)
+  (spec (k v) Q)
+  spec (bind (f x) k) Q
+
+
+  spec (f x) Q1
+  (forall y, Q1 y -> spec (k y) Q)
+  spec (bind (f x) k) Q
+
+
+substhyp:
+   (spec (k v) Q) ->
+  (forall y, y = r -> spec (k y) Q)
+
+
+xapp Specf :=
+  apply spec_let;
+  [ apply Specf
+  | first [ apply substhyp | intros y ] ]
+
+
+xapp Specf :=
+  apply spec_let;
+  [ apply Specf
+  | intros y  ]
+
+xapps Specf :=
+  apply spec_let;
+  [ apply Specf
+  | apply substhyp  ]
+
+
+xletapp
+
+
+
+let y = f x
+
+si but   "f x"
+
+
+spec (f x) Q
+apply spec_weaken; apply specf; intros "res"
+
+----------------------
+
+half n =
+  n / 2
+
+forall m n,
+  n = 2 * m ->
+  spec (half n) (fun r => r = m)  (* notation "= m" *)
+
+let quarter n =
+  let x = half n in
+  half n
+
+
+
+P a ->
+entail (fun y => y = a) P
+
+
+
+
+xapp ($(thespec) (2*m))
+
+
+xapp (@spec_half (2*m))
+xapp (>> (2*m) ...)
+
+
+
+----------------------
+
+xunf / xstart
+
+  => spec (f x ...) Q
+
+  unfold f
+
+
+xfail :
+
+  only
+  replace goal with false
+
+----------------------
+
+xif_lemma:
+  (b = true-> spec e1 Q)
+  (neg b -> spec e2 Q)
+  spec (if b then e1 else e2) Q
+
+
+"if not a"
+not a  = true   ---> !a
+neg (not a) = (not a = false)   ---> a
+
+xif :
+ apply xif_lemma; intros "HC"
+
+xif "HC"
+
+----------------------
+
+forall x y, v = x::y::nil -> spec (e1 x y) Q
+->
+(forall x y, v <> x::y::nil) -> spec e2 Q
+->
+spec (match v with
+      | x::y::nil -> e1 x y
+      | _ -> e2) Q
+
+
+test HC: (exists x y, v = x::y::nil).
+
+si vrai
+
+  match x::y::nil with
+        | x::y::nil -> e1 x y
+        | _ -> e2
+  --simpl
+  spec (e1 x y) Q
+
+si faux
+
+  ~ (exists x y, v = x::y::nil)
+  (forall x y, v <> x::y::nil)
+
+forall w, w = v
+spec (match w with
+      | x::y::nil -> e1 x y
+      | _ -> e2) Q
+
+desctruct sur w
+
+
+ (forall x y, w <> x::y::nil)
+assert ((match w with
+      | x::y::nil -> E'
+      | _ -> E)
+      = E)
+
+
+====================================
+
+case v is p then e1 else e2
+
+    notation pour
+
+bind_case (fun '(x,y) => v = p) (fun '(x,y) => e1) e2
+
+bind_case B (P:A->Prop) (K1:A->res B) (K2:res B) =:  où B tuple
+  match option_of_pred P with
+  | Some x -> K1 x
+  | None => K2
+
+option_of_pred P :=
+  if exists x, P x
+    then Some (epsilon P)
+    else None
+
+
+
+forall r, P r -> spec (K1 r) Q
+(forall r, ~ P r) -> spec K2 Q
+spec (bind_case B P (K1:B->res) (K2:res)) Q
+
+xcase
+  forall x y, v = x::y::nil -> spec (e1 x y) Q
+  => repeat intros; intros HC
+
+  (forall x y, v <> x::y::nil) -> spec e2 Q
+  => intros HC
+
++ nettoyage des not
+
+====================================
+
+  --simpl
+
+destruct v as v1
+
+
+case v p1 e1 e2 ===> deep embedding
+xcase
+
+xfail_match = xfail; essaie de prouver false avec "destruct v" les negation "intuition"
+
+(forall x y, v <> x::y)
+(forall x , v <> nil)
+-> False
+
+
+xmatch = repeat xcase à droite, puis xfail_match à la fin
+
+match v with
+| p1 -> e1
+| p2 -> e2
+| p3 -> e3
+
+match v with
+| p1 -> e1
+| _ ->
+  match v with
+  | p2 -> e2
+  | _ ->
+  match v with
+  | p3 -> e3
+  | _ -> fail
+
+
+----------------------
+
+xstep 4
+  => do 4 xstep
+
+xstep
+  => repeat xstep
+
+xgo
+  => repeat while all side conditions
+
+
+
+===========================
+
+
+rep a A
+   tree   multiset
+
+ type 'a queue = 'a list * 'a list
+
+inv q L :=
+  let q := (L1,L2) in
+  L = L1 ++ rev L2
+
+instance rep_queue :
+  rep queue multiset inv
+
+
+
+  rep queue q1 L1
+  rep q2 L2
+spec concat (q1 q2:queue) (fun qr:queue => exists LR, rep qr LR /\ qR = (L1++L2))
+
+equiv to
+
+repspec concat (L1 L2 :: queue) (fun LR :: queue =>  LR = L1++L2)
+
+
+===========================
+
+open Okasaki
+open QueueSig
+
+module BatchedQueue : Queue =
+struct
+
+   type 'a queue = 'a list * 'a list
+
+   let empty : 'a queue = ([],[])
+
+   let is_empty = function
+     | [],_  -> true
+     | _ -> false
+
+   let checkf = function
+     | [],r -> (List.rev r, [])
+     | q -> q
+
+   let snoc (f,r) x = checkf (f, x::r)
+
+   let head = function
+     | [], _ -> raise EmptyStructure
+     | x::f, r -> x
+
+   let tail = function
+     | [], _ -> raise EmptyStructure
+     | x::f, r -> checkf (f,r)
+
+end
+
+
+(** invariant *)
+
+Definition inv `{Rep a A} (q:queue a) (Q:list A) :=
+  let (f,r) := q in
+     rep (f ++ rev r) Q
+  /\ (f = nil -> r = nil).
+
+(** model *)
+
+Global Instance queue_rep `{Rep a A} : Rep (queue a) (list A).
+Proof.
+  intros. apply (Build_Rep inv).
+  destruct x; introv [? ?] [? ?]. prove_rep.
+Defined.
+
+(** automation *)
+
+Hint Unfold inv.
+Hint Constructors Forall2.
+Hint Resolve Forall2_last.
+Ltac auto_tilde ::= eauto.
+
+(** useful facts *)
+
+(** verification *)
+
+Section Polymorphic.
+Variables (a A : Type) (RA:Rep a A).
+
+Lemma empty_spec :
+  rep (@empty a) (@nil A).
+Proof.
+  generalizes RA A. apply (empty_cf a). xgo.
+  intros. simpl. rew_list~.
+Qed.
+
+Hint Extern 1 (RegisterSpec empty) => Provide empty_spec.
+
+Lemma is_empty_spec :
+  RepTotal is_empty (Q;queue a) >> bool_of (Q = nil).
+Proof.
+  xcf. intros (f0,r0) l [H M]. xgo.
+  rewrite~ M in H. inverts~ H.
+  intro_subst_hyp. inverts H as K.
+   destruct (nil_eq_app_rev_inv K). false.
+Qed.
+
+Hint Extern 1 (RegisterSpec is_empty) => Provide is_empty_spec.
+
+Lemma checkf_spec :
+  Spec checkf (q:queue a) |R>>
+    forall Q, (let (f,r) := q in rep (f ++ rev r) Q) ->
+    R (Q ;- queue a).
+Proof.
+  xcf. intros (f,r) l K. xgo; rew_list in K.
+  simpl. rew_list~. split; auto_false.
+Qed.
+
+Hint Extern 1 (RegisterSpec checkf) => Provide checkf_spec.
+
+Lemma snoc_spec :
+  RepTotal snoc (Q;queue a) (X;a) >> (Q & X) ;- queue a.
+Proof.
+  xcf. intros [f r] x. introv [H M] RX. simpl in H. xgo~.
+  rewrite~ app_rev_cons. ximpl~.
+Qed.
+
+Hint Extern 1 (RegisterSpec snoc) => Provide snoc_spec.
+
+Lemma head_spec :
+  RepSpec head (Q;queue a) |R>>
+     Q <> nil -> R (is_head Q ;; a).
+Proof.
+  xcf. intros [f r] q. introv [H M] NE. xgo; rew_list in H.
+  rewrite~ M in H. inverts~ H.
+  inverts~ H.
+Qed.
+
+Hint Extern 1 (RegisterSpec head) => Provide head_spec.
+
+Lemma tail_spec :
+  RepSpec tail (Q;queue a) |R>>
+     Q <> nil -> R (is_tail Q ;; queue a).
+Proof.
+  xcf. intros [f r] q. introv [H M] NE. xmatch.
+  xgo. rewrite~ M in H. inverts~ H.
+  inverts H. xgo~. ximpl~.
+Qed.
+
+Hint Extern 1 (RegisterSpec tail) => Provide tail_spec.
+
+End Polymorphic.
+
+
+
+
+========================
+
+
+(* ******************************************************* *)
+(** ** Source code *)
+
+Definition empty : heap :=
+  None.
+
+Definition is_empty (h:heap) : bool :=
+  match h with
+  | None => true
+  | _ => false
+  end.
+
+Definition merge (n1 n2:node) : node :=
+  match n1, n2 with Node x ns1, Node y ns2 =>
+     If x < y
+        then Node x (n2::ns1)
+        else Node y (n1::ns2)
+  end.
+
+Definition insert (h:heap) (x:elem) : heap :=
+  let n' := Node x nil in
+  match h with
+  | None => Some n'
+  | Some n => Some (merge n n')
+  end.
+
+Fixpoint merge_pairs (ns:list node) : node :=
+  match ns with
+  | nil => arbitrary
+  | n::nil => n
+  | n1::n2::hs' =>
+      let n12 := merge n1 n2 in
+      if LibListExec.is_nil hs'
+        then n12
+        else merge n12 (merge_pairs hs')
+  end.
+
+Definition pop_min (h:heap) : elem * heap :=
+  match h with
+  | Some (Node x ns) =>
+      let h' := if LibListExec.is_nil ns
+                  then None
+                  else Some (merge_pairs ns) in
+      (x, h')
+  | _ => arbitrary
+  end.
+
+
+=======
+
+
+Lemma empty_spec :
+  repr empty \{}.
+Proof using. constructor. Qed.
+
+Lemma is_empty_spec : forall h E,
+  repr h E ->
+  is_empty h = isTrue (E = \{}).
+Proof using.
+  introv I. unfold is_empty. destruct h; rew_bool_eq; inverts I as.
+  { introv N. inverts N. multiset_inv. }
+  { auto. }
+Qed.
+
+Lemma merge_spec : forall n1 E1 n2 E2,
+  inv n1 E1 ->
+  inv n2 E2 ->
+  inv (merge n1 n2) (E1 \u E2).
+Proof using.
+  introv I1 I2. unfold merge.
+  (destruct n1 as [x1 ns1]; inverts I1 as; intros Is1 Ks1);
+  (destruct n2 as [x2 ns2]; inverts I2 as; intros Is2 Ks2).
+  rename Es into Es1, Es0 into Es2. case_if.
+  { applys_eq* merge_lemma. multiset_eq. }
+  { applys_eq* merge_lemma. multiset_eq. } (* TODO:  automation should trigger the hint *)
+Qed.
+
+Lemma insert_spec : forall x h E,
+  repr h E ->
+  repr (insert h x) (E \u \{x}).
+Proof using.
+  introv I. unfold insert.
+  destruct h as [n|].
+  { inverts I as I. constructor. applys_eq (>> merge_spec I).
+    { applys* inv_Node. } }
+  { inverts I. constructor. applys* inv_Node. }
+Qed.
+
+Lemma merge_pairs_spec : forall ns Es,
+  ns <> nil ->
+  Forall2 inv ns Es ->
+  inv (merge_pairs ns) (list_union Es).
+Proof using.
+  intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
+  destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is.
+  rename y into E1. rename r into Es'.
+  destruct ns' as [|n2 ns'']; simpl.
+  { inverts Is. applys_eq* I1. }
+  { inverts Is as I2 Is. rename r into Es, y into E2.
+    rewrite LibListExec.is_nil_eq. case_if as C; rew_listx.
+    { subst ns''. inverts Is. applys merge_spec.
+      { applys I1. } { applys_eq* I2. } }
+    { rewrite union_assoc. applys_eq merge_spec.
+      { applys* merge_spec. }
+      { applys* IH. } } }
+Qed.
+
+Lemma pop_min_spec : forall h E h' x,
+  E <> \{} ->
+  repr h E ->
+  (x,h') = pop_min h ->
+     min_of E x
+  /\ exists E', repr h' E' /\ E = \{x} \u E'.
+Proof using.
+  introv N I M. unfolds pop_min.
+  destruct h as [n|]; inverts I as I; tryfalse.
+  destruct n as [y ns]. inverts M. inverts I as I1 Ks. split.
+  { applys~ pop_min_lemma. }
+  { rewrite LibListExec.is_nil_eq. case_if as C.
+    { subst ns. inverts I1. exists \{}. split~. constructor. }
+    { forwards~ Is: merge_pairs_spec I1. exists (list_union Es). split~.
+      constructor~. } }
+Qed.
+
